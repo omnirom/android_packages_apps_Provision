@@ -20,12 +20,15 @@ import android.app.Activity;
 import android.content.ComponentName;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.os.SystemProperties;
 import android.provider.Settings;
+import android.util.Log;
 
 /**
  * Application that sets the provisioned bit, like SetupWizard does.
  */
 public class DefaultActivity extends Activity {
+    private static final String TAG = "Provision";
 
     @Override
     protected void onCreate(Bundle icicle) {
@@ -35,8 +38,27 @@ public class DefaultActivity extends Activity {
         Settings.Global.putInt(getContentResolver(), Settings.Global.DEVICE_PROVISIONED, 1);
         Settings.Secure.putInt(getContentResolver(), Settings.Secure.USER_SETUP_COMPLETE, 1);
 
-        // remove this activity from the package manager.
+        // on microg disable the inbuild google contacts sync
+        // for the tinfoil hat people
+        // in therory we should never come here for gapps builds
+        // but better check the type to be sure
         PackageManager pm = getPackageManager();
+        try {
+            String omniVersion = SystemProperties.get("ro.omni.version", null);
+            if (omniVersion != null) {
+                boolean isMicroGBuild = omniVersion.contains("MICROG");
+                if (isMicroGBuild) {
+                    Log.d(TAG, "disable google contacts sync");
+                    pm.setApplicationEnabledSetting(
+                            "com.google.android.syncadapters.contacts",
+                            PackageManager.COMPONENT_ENABLED_STATE_DISABLED_USER,
+                            PackageManager.DONT_KILL_APP);
+                }
+            }
+        } catch (Exception e){
+            Log.d(TAG, "Error in disable google contacts sync", e);
+        }
+        // remove this activity from the package manager.
         ComponentName name = new ComponentName(this, DefaultActivity.class);
         pm.setComponentEnabledSetting(name, PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
                 PackageManager.DONT_KILL_APP);
